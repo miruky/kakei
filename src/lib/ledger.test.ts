@@ -122,6 +122,36 @@ describe('永続化と入出力', () => {
   });
 });
 
+describe('addMany', () => {
+  it('妥当なものだけ加え不正は数えて飛ばす', () => {
+    const ledger = new Ledger(memoryStorage());
+    const result = ledger.addMany([
+      { date: '2026-06-01', kind: 'expense', amount: 500, category: '食費' },
+      { date: 'bad', kind: 'expense', amount: 100, category: '食費' },
+      { date: '2026-06-02', kind: 'income', amount: 0, category: '給与' },
+      { date: '2026-06-03', kind: 'income', amount: 9000, category: '副収入' },
+    ]);
+    expect(result).toEqual({ added: 2, skipped: 2 });
+    expect(ledger.count()).toBe(2);
+  });
+
+  it('全件不正なら保存しない', () => {
+    let writes = 0;
+    const storage: StorageLike = {
+      getItem: () => null,
+      setItem: () => {
+        writes++;
+      },
+    };
+    const ledger = new Ledger(storage);
+    expect(ledger.addMany([{ date: 'x', kind: 'expense', amount: -1 }])).toEqual({
+      added: 0,
+      skipped: 1,
+    });
+    expect(writes).toBe(0);
+  });
+});
+
 describe('formatYen', () => {
   it('桁区切りと円を付ける', () => {
     expect(formatYen(1234567)).toBe('1,234,567円');
