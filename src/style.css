@@ -1,0 +1,641 @@
+/* 静かな緑青を一点に効かせた、低彩度の台帳。8pxグリッド。 */
+
+:root {
+  color-scheme: light dark;
+  --bg: #f4f5f3;
+  --surface: #ffffff;
+  --text: #232826;
+  --muted: #68716c;
+  --line: #dee2dd;
+  --accent: #22555c;
+  --expense: #a4453a;
+  --income: #2f6b50;
+  --shadow: 0 1px 2px rgb(35 40 38 / 0.05), 0 6px 20px rgb(35 40 38 / 0.07);
+  --chart-1: #22555c;
+  --chart-2: #b3592b;
+  --chart-3: #4f86c6;
+  --chart-4: #7a6c9e;
+  --chart-5: #5a8a4e;
+  --chart-6: #c0697a;
+  --chart-7: #8a8f4a;
+  --chart-8: #98a2ab;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161918;
+    --surface: #1e2220;
+    --text: #e5e8e6;
+    --muted: #97a09b;
+    --line: #313835;
+    --accent: #6db3bd;
+    --expense: #e08a7e;
+    --income: #7dbb96;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 6px 20px rgb(0 0 0 / 0.4);
+    --chart-1: #6db3bd;
+    --chart-2: #e08b5c;
+    --chart-3: #7aa8e0;
+    --chart-4: #a193cc;
+    --chart-5: #84b478;
+    --chart-6: #d98c9c;
+    --chart-7: #b3b870;
+    --chart-8: #6e7a84;
+  }
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Hiragino Sans', 'Noto Sans JP', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.shell {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+input {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.primary {
+  background: var(--accent);
+  color: var(--bg);
+  border-radius: 8px;
+  padding: 8px 20px;
+  font-weight: 600;
+  transition: filter 0.2s ease;
+}
+
+.primary:hover {
+  filter: brightness(1.1);
+}
+
+.ghost {
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 16px;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.ghost:hover {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
+.link {
+  color: var(--accent);
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+/* マストヘッド */
+
+.masthead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 32px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.logo {
+  width: 48px;
+  height: 48px;
+}
+
+h1 {
+  font-size: 1.875rem;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.tagline {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.masthead-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* パネルとフォーム */
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: var(--shadow);
+  margin-bottom: 24px;
+  animation: rise 0.35s ease both;
+}
+
+.panel h3 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 16px;
+  letter-spacing: 0.04em;
+}
+
+#entry-form {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+#entry-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+#entry-form .grow {
+  flex: 1 1 160px;
+}
+
+#entry-form input[name='amount'] {
+  width: 128px;
+  font-variant-numeric: tabular-nums;
+}
+
+#entry-form input[name='category'] {
+  width: 140px;
+}
+
+.kind-toggle {
+  border: none;
+  display: flex;
+  gap: 4px;
+}
+
+.kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.875rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.kind input {
+  accent-color: var(--accent);
+}
+
+.kind-expense:has(input:checked) {
+  border-color: var(--expense);
+  background: color-mix(in srgb, var(--expense) 10%, transparent);
+}
+
+.kind-income:has(input:checked) {
+  border-color: var(--income);
+  background: color-mix(in srgb, var(--income) 10%, transparent);
+}
+
+.entry-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+/* 月ナビとカード */
+
+.month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.month-nav h2 {
+  font-size: 1.25rem;
+  min-width: 9em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px 24px;
+  box-shadow: var(--shadow);
+  animation: rise 0.35s ease both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+
+.card-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+
+.card-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+
+.card-value.expense {
+  color: var(--expense);
+}
+
+.card-value.income {
+  color: var(--income);
+}
+
+.card-value .unit {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+/* チャート */
+
+.charts {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 24px;
+}
+
+@media (max-width: 760px) {
+  .charts {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chart-bar {
+  width: 100%;
+  height: auto;
+}
+
+.chart-bar .grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.chart-bar .tick {
+  font-size: 11px;
+  fill: var(--muted);
+}
+
+.chart-bar .bar rect {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: grow 0.45s ease both;
+  animation-delay: calc(var(--i, 0) * 35ms);
+}
+
+.bar-expense {
+  fill: var(--expense);
+}
+
+.bar-income {
+  fill: var(--income);
+}
+
+.chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+.key {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.key-expense {
+  background: var(--expense);
+}
+
+.key-income {
+  background: var(--income);
+  margin-left: 12px;
+}
+
+.donut-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.chart-donut {
+  width: 170px;
+  height: 170px;
+  flex-shrink: 0;
+}
+
+.chart-donut .seg {
+  animation: fade 0.5s ease both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+.seg-0 {
+  fill: var(--chart-1);
+  stroke: var(--chart-1);
+}
+.seg-1 {
+  fill: var(--chart-2);
+  stroke: var(--chart-2);
+}
+.seg-2 {
+  fill: var(--chart-3);
+  stroke: var(--chart-3);
+}
+.seg-3 {
+  fill: var(--chart-4);
+  stroke: var(--chart-4);
+}
+.seg-4 {
+  fill: var(--chart-5);
+  stroke: var(--chart-5);
+}
+.seg-5 {
+  fill: var(--chart-6);
+  stroke: var(--chart-6);
+}
+.seg-6 {
+  fill: var(--chart-7);
+  stroke: var(--chart-7);
+}
+.seg-7 {
+  fill: var(--chart-8);
+  stroke: var(--chart-8);
+}
+
+.chart-donut path.seg {
+  stroke: none;
+}
+
+.donut-num {
+  font-size: 22px;
+  font-weight: 700;
+  fill: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.donut-sub {
+  font-size: 11px;
+  fill: var(--muted);
+}
+
+.legend {
+  list-style: none;
+  flex: 1;
+  min-width: 160px;
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  padding: 3px 0;
+  animation: fade 0.4s ease both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.swatch.seg-0 {
+  background: var(--chart-1);
+}
+.swatch.seg-1 {
+  background: var(--chart-2);
+}
+.swatch.seg-2 {
+  background: var(--chart-3);
+}
+.swatch.seg-3 {
+  background: var(--chart-4);
+}
+.swatch.seg-4 {
+  background: var(--chart-5);
+}
+.swatch.seg-5 {
+  background: var(--chart-6);
+}
+.swatch.seg-6 {
+  background: var(--chart-7);
+}
+.swatch.seg-7 {
+  background: var(--chart-8);
+}
+
+.legend-amount {
+  margin-left: auto;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 一覧 */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+th {
+  text-align: left;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+td {
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+tbody tr {
+  transition: background 0.15s ease;
+}
+
+tbody tr:hover {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.cell-date {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cell-memo {
+  color: var(--muted);
+}
+
+.cell-amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cell-amount.expense {
+  color: var(--expense);
+}
+
+.cell-amount.income {
+  color: var(--income);
+}
+
+.cell-ops {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.empty {
+  color: var(--muted);
+  text-align: center;
+  padding: 24px;
+}
+
+/* トースト */
+
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translate(-50%, 16px);
+  background: var(--text);
+  color: var(--bg);
+  padding: 10px 20px;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease;
+}
+
+#toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes grow {
+  from {
+    transform: scaleY(0);
+  }
+
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
