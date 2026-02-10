@@ -28,17 +28,18 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-function countUp(el: HTMLElement, target: number): void {
-  if (prefersReducedMotion() || target === 0) {
+// 前回値から今回値へ数字を補間する。月送りで額が連続して動いて見える。
+function countUp(el: HTMLElement, target: number, from = 0): void {
+  if (prefersReducedMotion() || target === from) {
     el.textContent = target.toLocaleString('ja-JP');
     return;
   }
-  const duration = 500;
+  const duration = 520;
   const start = performance.now();
   const step = (t: number) => {
     const ratio = Math.min(1, (t - start) / duration);
     const eased = 1 - (1 - ratio) ** 3;
-    el.textContent = Math.round(target * eased).toLocaleString('ja-JP');
+    el.textContent = Math.round(from + (target - from) * eased).toLocaleString('ja-JP');
     if (ratio < 1) requestAnimationFrame(step);
   };
   requestAnimationFrame(step);
@@ -47,6 +48,10 @@ function countUp(el: HTMLElement, target: number): void {
 export function mountApp(root: HTMLElement, ledger: Ledger): void {
   let month = todayLocal().slice(0, 7);
   let editingId: string | null = null;
+  // カードの前回表示額。月送りや記録追加で数字を連続的にアニメートするために保持する。
+  const lastValues = new Map<string, number>();
+  // 直近の追加内容。renderCardsが対象カードへ加算チップを浮かせるのに使う。
+  let pendingDelta: { kind: EntryKind; amount: number } | null = null;
 
   root.innerHTML = `
     <div class="shell">
@@ -90,31 +95,44 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
         <button type="button" id="next-month" class="ghost" aria-label="次の月">翌月</button>
       </nav>
 
-      <section class="cards" id="cards" aria-label="月のまとめ"></section>
+      <div class="month-view" id="month-view">
+        <section class="cards" id="cards" aria-label="月のまとめ"></section>
 
-      <div class="charts">
-        <section class="panel" aria-labelledby="trend-heading">
-          <h3 id="trend-heading">月次推移(12か月)</h3>
-          <div id="trend-chart"></div>
-          <p class="chart-legend">
-            <span class="key key-expense"></span>支出
-            <span class="key key-income"></span>収入
-          </p>
-        </section>
-        <section class="panel" aria-labelledby="share-heading">
-          <h3 id="share-heading">支出の内訳</h3>
-          <div class="donut-row">
-            <div id="share-chart"></div>
-            <ul id="share-legend" class="legend"></ul>
-          </div>
+        <div class="charts">
+          <section class="panel" aria-labelledby="trend-heading">
+            <h3 id="trend-heading">月次推移(12か月)</h3>
+            <div id="trend-chart"></div>
+            <p class="chart-legend">
+              <span class="key key-expense"></span>支出
+              <span class="key key-income"></span>収入
+            </p>
+          </section>
+          <section class="panel" aria-labelledby="share-heading">
+            <h3 id="share-heading">支出の内訳</h3>
+            <div class="donut-row">
+              <div id="share-chart"></div>
+              <ul id="share-legend" class="legend"></ul>
+            </div>
+          </section>
+        </div>
+
+        <section class="panel" aria-labelledby="entries-heading">
+          <h3 id="entries-heading">記録の一覧</h3>
+          <div id="entries"></div>
         </section>
       </div>
-
-      <section class="panel" aria-labelledby="entries-heading">
-        <h3 id="entries-heading">記録の一覧</h3>
-        <div id="entries"></div>
-      </section>
-      <div id="toast" role="status" aria-live="polite"></div>
+      <div id="toast" role="status" aria-live="polite">
+        <svg class="toast-icon icon-ok" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/>
+          <path d="M8 12.4l2.6 2.6 5.2-5.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <svg class="toast-icon icon-error" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 7.4v5.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="12" cy="16.2" r="1.15" fill="currentColor"/>
+        </svg>
+        <span class="toast-msg"></span>
+      </div>
     </div>`;
 
   const $ = <T extends HTMLElement>(selector: string): T => {
@@ -131,10 +149,15 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
     return node as T;
   };
   const toastBox = $('#toast');
+  const toastMsg = $('.toast-msg');
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
-  function toast(message: string): void {
-    toastBox.textContent = message;
+  function toast(message: string, ok = true): void {
+    toastMsg.textContent = message;
+    toastBox.classList.toggle('is-error', !ok);
+    // 連続表示でも入場アニメをやり直すため、一度クラスを外して再付与する。
+    toastBox.classList.remove('show');
+    void toastBox.offsetWidth;
     toastBox.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toastBox.classList.remove('show'), 3500);
@@ -175,27 +198,46 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
     field<HTMLInputElement>('amount').focus();
   }
 
+  function floatGain(card: HTMLElement | null, delta: { kind: EntryKind; amount: number }): void {
+    if (card === null || prefersReducedMotion()) return;
+    const chip = document.createElement('span');
+    chip.className = `gain gain-${delta.kind}`;
+    chip.textContent = `+${formatYen(delta.amount)}`;
+    card.appendChild(chip);
+    chip.addEventListener('animationend', () => chip.remove(), { once: true });
+  }
+
   function renderCards(): void {
     const s = summarizeMonth(ledger.all(), month);
     const cards = [
-      { label: '支出', value: s.expense, cls: 'expense' },
-      { label: '収入', value: s.income, cls: 'income' },
-      { label: '収支', value: s.balance, cls: s.balance >= 0 ? 'income' : 'expense' },
+      { key: 'expense', label: '支出', value: s.expense, cls: 'expense' },
+      { key: 'income', label: '収入', value: s.income, cls: 'income' },
+      { key: 'balance', label: '収支', value: s.balance, cls: s.balance >= 0 ? 'income' : 'expense' },
     ];
     $('#cards').innerHTML = cards
       .map(
         (c, i) => `
-        <div class="card card-${c.cls}" style="--i:${i}">
+        <div class="card card-${c.cls}" data-key="${c.key}" style="--i:${i}">
           <p class="card-label">${c.label}</p>
           <p class="card-value ${c.cls}">
-            ${c.value < 0 ? '-' : ''}<span class="num" data-count="${Math.abs(c.value)}">0</span><span class="unit">円</span>
+            <span class="sign">${c.value < 0 ? '-' : ''}</span><span class="num">0</span><span class="unit">円</span>
           </p>
         </div>`,
       )
       .join('');
-    root.querySelectorAll<HTMLElement>('.num').forEach((el) => {
-      countUp(el, Number(el.dataset.count ?? 0));
-    });
+    for (const c of cards) {
+      const card = root.querySelector<HTMLElement>(`.card[data-key="${c.key}"]`);
+      const numEl = card?.querySelector<HTMLElement>('.num');
+      if (numEl !== null && numEl !== undefined) {
+        countUp(numEl, Math.abs(c.value), Math.abs(lastValues.get(c.key) ?? 0));
+      }
+      lastValues.set(c.key, c.value);
+    }
+    if (pendingDelta !== null) {
+      const key = pendingDelta.kind === 'income' ? 'income' : 'expense';
+      floatGain(root.querySelector<HTMLElement>(`.card[data-key="${key}"]`), pendingDelta);
+      pendingDelta = null;
+    }
   }
 
   function renderCharts(): void {
@@ -225,7 +267,7 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
       .join('');
   }
 
-  function renderEntries(): void {
+  function renderEntries(animate = false): void {
     const entries = ledger.byMonth(month);
     if (entries.length === 0) {
       $('#entries').innerHTML =
@@ -234,8 +276,8 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
     }
     const rows = entries
       .map(
-        (e) => `
-        <tr>
+        (e, i) => `
+        <tr style="--i:${i}">
           <td class="cell-date">${Number(e.date.slice(8))}日</td>
           <td>${esc(e.category)}</td>
           <td class="cell-memo">${esc(e.memo)}</td>
@@ -250,15 +292,28 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
     $('#entries').innerHTML = `
       <table>
         <thead><tr><th scope="col">日</th><th scope="col">カテゴリ</th><th scope="col">メモ</th><th scope="col">金額</th><th scope="col"><span class="visually-hidden">操作</span></th></tr></thead>
-        <tbody>${rows}</tbody>
+        <tbody class="${animate ? 'stagger' : ''}">${rows}</tbody>
       </table>`;
   }
 
-  function render(): void {
+  function render(animate = false): void {
     $('#month-label').textContent = monthLabel(month);
     renderCards();
     renderCharts();
-    renderEntries();
+    renderEntries(animate);
+  }
+
+  // 月送りの向きに合わせて表示領域をスライドさせ、行をスタッガ入場させる。
+  function changeMonth(delta: number): void {
+    month = shiftMonth(month, delta);
+    if (!prefersReducedMotion()) {
+      const view = $('#month-view');
+      view.style.setProperty('--dir', String(delta));
+      view.classList.remove('slide');
+      void view.offsetWidth;
+      view.classList.add('slide');
+    }
+    render(true);
   }
 
   form.addEventListener('submit', (e) => {
@@ -276,14 +331,19 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
         const entry = ledger.add(input);
         toast(`${entry.category} ${formatYen(entry.amount)}を記録しました`);
         month = entry.date.slice(0, 7);
+        pendingDelta = { kind: entry.kind, amount: entry.amount };
       } else {
         ledger.update(editingId, input);
         toast('記録を更新しました');
       }
+      const submit = $('#entry-submit');
+      submit.classList.remove('pulse');
+      void submit.offsetWidth;
+      submit.classList.add('pulse');
       resetForm();
       render();
     } catch (err) {
-      toast(err instanceof LedgerError ? err.message : '記録に失敗しました');
+      toast(err instanceof LedgerError ? err.message : '記録に失敗しました', false);
     }
   });
 
@@ -293,15 +353,8 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
 
   $('#entry-cancel').addEventListener('click', resetForm);
 
-  $('#prev-month').addEventListener('click', () => {
-    month = shiftMonth(month, -1);
-    render();
-  });
-
-  $('#next-month').addEventListener('click', () => {
-    month = shiftMonth(month, 1);
-    render();
-  });
+  $('#prev-month').addEventListener('click', () => changeMonth(-1));
+  $('#next-month').addEventListener('click', () => changeMonth(1));
 
   $('#entries').parentElement?.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
@@ -318,10 +371,18 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
         remove.textContent = '本当に削除';
         return;
       }
-      ledger.remove(remove.dataset.remove ?? '');
-      if (editingId === remove.dataset.remove) resetForm();
+      const id = remove.dataset.remove ?? '';
+      ledger.remove(id);
+      if (editingId === id) resetForm();
       toast('記録を削除しました');
-      render();
+      const row = remove.closest('tr');
+      if (row !== null && !prefersReducedMotion()) {
+        // 行を畳んでから一覧を作り直し、消える動きを見せる。
+        row.classList.add('removing');
+        row.addEventListener('animationend', () => render(), { once: true });
+      } else {
+        render();
+      }
     }
   });
 
