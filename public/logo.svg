@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="kakeiのロゴ">
+  <title>kakei</title>
+  <style>
+    :root { --ink: #3a4448; --accent: #22555c; }
+    @media (prefers-color-scheme: dark) {
+      :root { --ink: #cdd5d8; --accent: #6db3bd; }
+    }
+  </style>
+  <rect x="10" y="8" width="44" height="48" rx="6" fill="none" stroke="var(--ink)" stroke-width="3"/>
+  <path d="M20 20h24M20 30h24" stroke="var(--ink)" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
+  <circle cx="32" cy="44" r="8" fill="none" stroke="var(--accent)" stroke-width="3"/>
+  <path d="M32 40v8M29 42.5h6M29 45.5h6" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>
+</svg>
