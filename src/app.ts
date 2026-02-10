@@ -4,8 +4,16 @@ import { donutChart, escapeXml, groupedBarChart } from './lib/chart';
 import type { Entry, EntryKind, Ledger } from './lib/ledger';
 import { EXPENSE_CATEGORIES, formatYen, INCOME_CATEGORIES, LedgerError } from './lib/ledger';
 import { categoryShares, monthlySummaries, shiftMonth, summarizeMonth } from './lib/stats';
+import { nextPref, prefLabel, readPref, savePref, type ThemePref } from './lib/theme';
 
 const esc = escapeXml;
+
+// テーマ選好を一目で示すアイコン。system=明暗を半分ずつ塗った円、light=陽、dark=月。
+const THEME_ICONS: Record<ThemePref, string> = {
+  system: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17Z" fill="currentColor"/></svg>`,
+  light: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.1" fill="none" stroke="currentColor" stroke-width="1.7"/><g stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 2.6v2.4M12 19v2.4M2.6 12h2.4M19 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3 17 7M7 17l-1.7 1.7"/></g></svg>`,
+  dark: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.8A8.4 8.4 0 0 1 9.2 3.5 7.6 7.6 0 1 0 20.5 14.8Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>`,
+};
 
 const LOGO = `
 <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
@@ -64,13 +72,14 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
           </div>
         </div>
         <div class="masthead-actions">
+          <button type="button" id="theme-toggle" class="icon-btn"></button>
           <button type="button" id="export" class="ghost">エクスポート</button>
           <button type="button" id="import" class="ghost">インポート</button>
           <input type="file" id="import-file" accept=".json,application/json" hidden>
         </div>
       </header>
 
-      <section class="panel" aria-label="記録を付ける">
+      <section class="panel reveal" aria-label="記録を付ける">
         <form id="entry-form" autocomplete="off">
           <fieldset class="kind-toggle">
             <legend class="visually-hidden">種別</legend>
@@ -96,10 +105,10 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
       </nav>
 
       <div class="month-view" id="month-view">
-        <section class="cards" id="cards" aria-label="月のまとめ"></section>
+        <section class="cards reveal" id="cards" aria-label="月のまとめ" style="animation-delay:60ms"></section>
 
         <div class="charts">
-          <section class="panel" aria-labelledby="trend-heading">
+          <section class="panel reveal" aria-labelledby="trend-heading" style="animation-delay:120ms">
             <h3 id="trend-heading">月次推移(12か月)</h3>
             <div id="trend-chart"></div>
             <p class="chart-legend">
@@ -107,7 +116,7 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
               <span class="key key-income"></span>収入
             </p>
           </section>
-          <section class="panel" aria-labelledby="share-heading">
+          <section class="panel reveal" aria-labelledby="share-heading" style="animation-delay:160ms">
             <h3 id="share-heading">支出の内訳</h3>
             <div class="donut-row">
               <div id="share-chart"></div>
@@ -116,7 +125,7 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
           </section>
         </div>
 
-        <section class="panel" aria-labelledby="entries-heading">
+        <section class="panel reveal" aria-labelledby="entries-heading" style="animation-delay:200ms">
           <h3 id="entries-heading">記録の一覧</h3>
           <div id="entries"></div>
         </section>
@@ -212,7 +221,12 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
     const cards = [
       { key: 'expense', label: '支出', value: s.expense, cls: 'expense' },
       { key: 'income', label: '収入', value: s.income, cls: 'income' },
-      { key: 'balance', label: '収支', value: s.balance, cls: s.balance >= 0 ? 'income' : 'expense' },
+      {
+        key: 'balance',
+        label: '収支',
+        value: s.balance,
+        cls: s.balance >= 0 ? 'income' : 'expense',
+      },
     ];
     $('#cards').innerHTML = cards
       .map(
@@ -416,6 +430,38 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
         toast(err instanceof LedgerError ? err.message : '読み込みに失敗しました');
       }
     });
+  });
+
+  // テーマ切替。system → light → dark を巡回し、data-theme属性で見た目が決まる。
+  const docEl = document.documentElement;
+  const themeBtn = $('#theme-toggle');
+  let themePref = readPref(localStorage);
+
+  function syncMetaThemeColor(): void {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta === null) return;
+    const bg = getComputedStyle(docEl).getPropertyValue('--bg').trim();
+    if (bg !== '') meta.setAttribute('content', bg);
+  }
+
+  function applyThemePref(pref: ThemePref): void {
+    docEl.dataset.theme = pref;
+    themeBtn.innerHTML = THEME_ICONS[pref];
+    themeBtn.setAttribute('aria-label', `テーマ: ${prefLabel(pref)}(切り替え)`);
+    themeBtn.title = `テーマ: ${prefLabel(pref)}`;
+    syncMetaThemeColor();
+  }
+
+  applyThemePref(themePref);
+  themeBtn.addEventListener('click', () => {
+    themePref = nextPref(themePref);
+    savePref(localStorage, themePref);
+    applyThemePref(themePref);
+    toast(`テーマを「${prefLabel(themePref)}」にしました`);
+  });
+  // systemのときはOSの明暗変更にmetaを追従させる(表示自体はCSSが追従する)。
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (themePref === 'system') syncMetaThemeColor();
   });
 
   resetForm();
