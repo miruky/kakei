@@ -7,11 +7,23 @@
       name="description"
       content="ローカルファーストの家計簿PWA。月次推移と支出の内訳をSVGグラフで眺める。データは端末の中だけに置く。"
     />
-    <meta name="theme-color" content="#22555c" />
+    <meta name="theme-color" content="#f5f4ef" />
     <link rel="icon" type="image/svg+xml" href="./logo.svg" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./logo.svg" />
     <title>kakei — ローカルファースト家計簿</title>
+    <script>
+      // 描画前にテーマを確定させ、リロード時のちらつきを防ぐ。
+      (function () {
+        try {
+          var t = localStorage.getItem('kakei:theme');
+          document.documentElement.dataset.theme =
+            t === 'light' || t === 'dark' || t === 'system' ? t : 'system';
+        } catch (e) {
+          document.documentElement.dataset.theme = 'system';
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>
