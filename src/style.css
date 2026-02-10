@@ -307,14 +307,22 @@ h1 {
 
 .card {
   position: relative;
+  overflow: hidden;
   background: var(--surface);
   border: 1px solid var(--line);
   border-left: 3px solid var(--line-strong);
   border-radius: var(--r-md);
   padding: var(--s4) var(--s5);
   box-shadow: var(--shadow-sm);
-  animation: rise 0.4s var(--ease) both;
-  animation-delay: calc(var(--i, 0) * 70ms);
+  transition:
+    transform 0.2s var(--ease),
+    box-shadow 0.2s var(--ease),
+    border-color 0.2s var(--ease);
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
 }
 
 .card.card-expense {
@@ -665,6 +673,179 @@ tbody tr:hover {
   to {
     opacity: 1;
   }
+}
+
+/* 月送りの方向トランジション */
+
+.month-view.slide {
+  animation: month-slide 0.42s var(--ease) both;
+}
+
+@keyframes month-slide {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--dir, 1) * 26px));
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* 記録追加時に対象カードへ浮かぶ加算チップ */
+
+.gain {
+  position: absolute;
+  top: var(--s3);
+  right: var(--s4);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  animation: gain-float 1.1s var(--ease) both;
+}
+
+.gain-expense {
+  color: var(--expense);
+}
+
+.gain-income {
+  color: var(--income);
+}
+
+@keyframes gain-float {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.9);
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}
+
+/* 送信ボタンの成功パルス */
+
+.primary.pulse {
+  animation: btn-pulse 0.5s var(--ease);
+}
+
+@keyframes btn-pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--accent-soft);
+  }
+  100% {
+    box-shadow: 0 0 0 12px transparent;
+  }
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+/* 一覧行のスタッガ入場と削除 */
+
+tbody.stagger tr {
+  animation: row-in 0.4s var(--ease) both;
+  animation-delay: calc(min(var(--i, 0), 12) * 28ms);
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+tr.removing {
+  animation: row-out 0.28s var(--ease) forwards;
+}
+
+tr.removing td {
+  color: var(--muted);
+}
+
+@keyframes row-out {
+  to {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+}
+
+/* チャートのホバー強調 */
+
+.chart-bar .bar {
+  transition: opacity 0.18s var(--ease);
+}
+
+.chart-bar:hover .bar {
+  opacity: 0.42;
+}
+
+.chart-bar .bar:hover {
+  opacity: 1;
+}
+
+.chart-donut .seg {
+  transition: opacity 0.18s var(--ease);
+}
+
+.chart-donut:hover .seg {
+  opacity: 0.5;
+}
+
+.chart-donut .seg:hover {
+  opacity: 1;
+}
+
+.legend li {
+  transition: color 0.15s var(--ease);
+}
+
+.legend li:hover {
+  color: var(--text);
+}
+
+/* トースト */
+
+#toast {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.toast-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.icon-ok {
+  color: color-mix(in srgb, var(--bg) 76%, var(--income));
+}
+
+.icon-error {
+  display: none;
+  color: color-mix(in srgb, var(--bg) 70%, var(--expense));
+}
+
+#toast.is-error .icon-ok {
+  display: none;
+}
+
+#toast.is-error .icon-error {
+  display: inline-block;
 }
 
 @media (prefers-reduced-motion: reduce) {
