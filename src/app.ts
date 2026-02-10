@@ -185,7 +185,7 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
     $('#cards').innerHTML = cards
       .map(
         (c, i) => `
-        <div class="card" style="--i:${i}">
+        <div class="card card-${c.cls}" style="--i:${i}">
           <p class="card-label">${c.label}</p>
           <p class="card-value ${c.cls}">
             ${c.value < 0 ? '-' : ''}<span class="num" data-count="${Math.abs(c.value)}">0</span><span class="unit">円</span>
