@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 380" role="img" aria-label="kakeiのアーキテクチャ図">
+  <title>kakeiのアーキテクチャ。UIが台帳と集計とチャート生成を束ね、Service Workerがオフラインを支える。</title>
+  <style>
+    svg { --paper: #f4f5f3; --box: #ffffff; --ink: #232826; --muted: #68716c; --line: #adb5af; --accent: #22555c; }
+    @media (prefers-color-scheme: dark) {
+      svg { --paper: #161918; --box: #1e2220; --ink: #e5e8e6; --muted: #97a09b; --line: #4a534e; --accent: #6db3bd; }
+    }
+    text { font-family: "Hiragino Sans", "Noto Sans JP", sans-serif; fill: var(--ink); }
+    .name { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; font-weight: 600; }
+    .sub { font-size: 11px; fill: var(--muted); }
+    .label { font-size: 10px; fill: var(--muted); }
+    .box { fill: var(--box); stroke: var(--line); }
+    .ext { fill: none; stroke: var(--muted); stroke-dasharray: 5 4; }
+    .flow { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L8 4L0 8z" fill="var(--accent)"/>
+    </marker>
+  </defs>
+
+  <rect width="780" height="380" fill="var(--paper)"/>
+  <text x="40" y="46" font-size="16" font-weight="700">kakei のアーキテクチャ</text>
+
+  <rect class="box" x="40" y="120" width="180" height="150" rx="10"/>
+  <text x="130" y="172" text-anchor="middle" font-size="14" font-weight="600">家計簿UI</text>
+  <text x="130" y="196" text-anchor="middle" class="name">app.ts</text>
+  <text x="130" y="220" text-anchor="middle" class="sub">入力・月送り・一覧</text>
+
+  <rect class="box" x="320" y="76" width="200" height="58" rx="8"/>
+  <text x="336" y="100" class="name">ledger.ts</text>
+  <text x="336" y="120" class="sub">台帳。整数円・検証・入出力</text>
+
+  <rect class="box" x="320" y="166" width="200" height="58" rx="8"/>
+  <text x="336" y="190" class="name">stats.ts</text>
+  <text x="336" y="210" class="sub">月次集計・カテゴリ内訳</text>
+
+  <rect class="box" x="320" y="256" width="200" height="58" rx="8"/>
+  <text x="336" y="280" class="name">chart.ts</text>
+  <text x="336" y="300" class="sub">棒・ドーナツのSVG生成</text>
+
+  <rect class="ext" x="600" y="76" width="140" height="58" rx="8"/>
+  <text x="670" y="100" text-anchor="middle" class="name">localStorage</text>
+  <text x="670" y="120" text-anchor="middle" class="sub">端末内に保存</text>
+
+  <rect class="ext" x="600" y="256" width="140" height="58" rx="8"/>
+  <text x="670" y="280" text-anchor="middle" class="name">sw.js</text>
+  <text x="670" y="300" text-anchor="middle" class="sub">オフライン配信</text>
+
+  <path class="flow" d="M220 160 C 260 160 276 105 320 105" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <path class="flow" d="M220 195 H 318" marker-end="url(#arrow)"/>
+  <path class="flow" d="M220 230 C 260 230 276 285 320 285" marker-end="url(#arrow)"/>
+  <path class="flow" d="M520 105 H 598" marker-end="url(#arrow)"/>
+  <text x="559" y="96" text-anchor="middle" class="label">JSON</text>
+  <path class="flow" d="M130 270 C 130 350 400 350 598 300" marker-start="url(#arrow)" opacity="0.7" stroke-dasharray="4 4"/>
+  <text x="380" y="356" text-anchor="middle" class="label">アプリ一式をキャッシュ</text>
+</svg>
