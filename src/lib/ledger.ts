@@ -228,6 +228,31 @@ export class Ledger {
     this.save();
     return { added, skipped };
   }
+
+  // 複数のNewEntryをまとめて取り込む(CSV取り込み用)。妥当なものだけ加える。
+  addMany(inputs: NewEntry[]): ImportResult {
+    let added = 0;
+    let skipped = 0;
+    for (const input of inputs) {
+      try {
+        validate(input);
+      } catch {
+        skipped++;
+        continue;
+      }
+      this.items.push({
+        id: makeId(),
+        date: input.date,
+        kind: input.kind,
+        amount: input.amount,
+        category: (input.category ?? '').trim() || 'その他',
+        memo: (input.memo ?? '').trim(),
+      });
+      added++;
+    }
+    if (added > 0) this.save();
+    return { added, skipped };
+  }
 }
 
 export function formatYen(amount: number): string {
