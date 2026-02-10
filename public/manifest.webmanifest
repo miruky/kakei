@@ -1,0 +1,19 @@
+{
+  "name": "kakei",
+  "short_name": "kakei",
+  "description": "ローカルファーストの家計簿。データは端末の中だけに置く。",
+  "lang": "ja",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#f4f5f3",
+  "theme_color": "#22555c",
+  "icons": [
+    {
+      "src": "logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
