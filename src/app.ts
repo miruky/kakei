@@ -4,6 +4,8 @@ import { donutChart, escapeXml, groupedBarChart } from './lib/chart';
 import type { Entry, EntryKind, Ledger } from './lib/ledger';
 import { EXPENSE_CATEGORIES, formatYen, INCOME_CATEGORIES, LedgerError } from './lib/ledger';
 import { categoryShares, monthlySummaries, shiftMonth, summarizeMonth } from './lib/stats';
+import { fromCsv, toCsv } from './lib/csv';
+import { filterEntries } from './lib/filter';
 import { nextPref, prefLabel, readPref, savePref, type ThemePref } from './lib/theme';
 
 const esc = escapeXml;
@@ -56,6 +58,8 @@ function countUp(el: HTMLElement, target: number, from = 0): void {
 export function mountApp(root: HTMLElement, ledger: Ledger): void {
   let month = todayLocal().slice(0, 7);
   let editingId: string | null = null;
+  // 一覧の絞り込み語。月内の記録をカテゴリ・メモ・金額で絞る。
+  let searchQuery = '';
   // カードの前回表示額。月送りや記録追加で数字を連続的にアニメートするために保持する。
   const lastValues = new Map<string, number>();
   // 直近の追加内容。renderCardsが対象カードへ加算チップを浮かせるのに使う。
@@ -73,9 +77,15 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
         </div>
         <div class="masthead-actions">
           <button type="button" id="theme-toggle" class="icon-btn"></button>
-          <button type="button" id="export" class="ghost">エクスポート</button>
-          <button type="button" id="import" class="ghost">インポート</button>
-          <input type="file" id="import-file" accept=".json,application/json" hidden>
+          <div class="menu" id="data-menu">
+            <button type="button" id="data-toggle" class="ghost" aria-haspopup="true" aria-expanded="false" aria-controls="data-list">データ</button>
+            <div class="menu-list" id="data-list" role="menu" hidden>
+              <button type="button" role="menuitem" id="export-json">JSONで書き出す</button>
+              <button type="button" role="menuitem" id="export-csv">CSVで書き出す</button>
+              <button type="button" role="menuitem" id="import-trigger">ファイルから取り込む</button>
+            </div>
+          </div>
+          <input type="file" id="import-file" accept=".json,.csv,application/json,text/csv" hidden>
         </div>
       </header>
 
@@ -126,7 +136,16 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
         </div>
 
         <section class="panel reveal" aria-labelledby="entries-heading" style="animation-delay:200ms">
-          <h3 id="entries-heading">記録の一覧</h3>
+          <div class="panel-head">
+            <h3 id="entries-heading">記録の一覧</h3>
+            <div class="search">
+              <svg viewBox="0 0 24 24" aria-hidden="true" class="search-icon">
+                <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.7"/>
+                <path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+              </svg>
+              <input type="search" id="entry-search" placeholder="カテゴリ・メモ・金額で絞り込む" aria-label="記録を絞り込む">
+            </div>
+          </div>
           <div id="entries"></div>
         </section>
       </div>
@@ -282,10 +301,16 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
   }
 
   function renderEntries(animate = false): void {
-    const entries = ledger.byMonth(month);
-    if (entries.length === 0) {
+    const all = ledger.byMonth(month);
+    const entries = filterEntries(all, searchQuery);
+    if (all.length === 0) {
       $('#entries').innerHTML =
         '<p class="empty">この月の記録はまだありません。上のフォームから付けられます。</p>';
+      return;
+    }
+    if (entries.length === 0) {
+      $('#entries').innerHTML =
+        `<p class="empty">「${esc(searchQuery)}」に一致する記録はありません。</p>`;
       return;
     }
     const rows = entries
@@ -315,6 +340,7 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
     renderCards();
     renderCharts();
     renderEntries(animate);
+    syncHash();
   }
 
   // 月送りの向きに合わせて表示領域をスライドさせ、行をスタッガ入場させる。
@@ -400,19 +426,60 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
     }
   });
 
-  $('#export').addEventListener('click', () => {
-    const stamp = todayLocal().replace(/-/g, '');
-    const blob = new Blob([ledger.exportJson()], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
+  function download(filename: string, text: string, mime: string): void {
+    // CSVはExcelで文字化けしないようUTF-8のBOMを先頭に付ける。
+    const parts = mime.startsWith('text/csv') ? ['\uFEFF', text] : [text];
+    const url = URL.createObjectURL(new Blob(parts, { type: mime }));
     const a = document.createElement('a');
     a.href = url;
-    a.download = `kakei-${stamp}.json`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
-    toast('台帳をエクスポートしました');
+  }
+
+  // データメニュー(書き出し・取り込み)。外側クリックとEscで閉じる。
+  const dataMenu = $('#data-menu');
+  const dataToggle = $('#data-toggle');
+  const dataList = $('#data-list');
+  function closeMenu(): void {
+    dataList.hidden = true;
+    dataToggle.setAttribute('aria-expanded', 'false');
+  }
+  dataToggle.addEventListener('click', () => {
+    const open = dataList.hidden;
+    dataList.hidden = !open;
+    dataToggle.setAttribute('aria-expanded', String(open));
+  });
+  document.addEventListener('click', (e) => {
+    if (!dataMenu.contains(e.target as Node)) closeMenu();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !dataList.hidden) {
+      closeMenu();
+      dataToggle.focus();
+    }
   });
 
-  $('#import').addEventListener('click', () => {
+  $('#export-json').addEventListener('click', () => {
+    download(
+      `kakei-${todayLocal().replace(/-/g, '')}.json`,
+      ledger.exportJson(),
+      'application/json',
+    );
+    closeMenu();
+    toast('JSONで書き出しました');
+  });
+  $('#export-csv').addEventListener('click', () => {
+    download(
+      `kakei-${todayLocal().replace(/-/g, '')}.csv`,
+      toCsv(ledger.all()),
+      'text/csv;charset=utf-8',
+    );
+    closeMenu();
+    toast('CSVで書き出しました');
+  });
+  $('#import-trigger').addEventListener('click', () => {
+    closeMenu();
     $<HTMLInputElement>('#import-file').click();
   });
 
@@ -421,15 +488,22 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
     const file = input.files?.[0];
     input.value = '';
     if (file === undefined) return;
+    const isCsv = /\.csv$/i.test(file.name) || file.type === 'text/csv';
     void file.text().then((text) => {
       try {
-        const result = ledger.importJson(text);
+        const result = isCsv ? ledger.addMany(fromCsv(text)) : ledger.importJson(text);
         toast(`${result.added}件を取り込みました(${result.skipped}件は読み飛ばし)`);
         render();
       } catch (err) {
-        toast(err instanceof LedgerError ? err.message : '読み込みに失敗しました');
+        toast(err instanceof LedgerError ? err.message : '読み込みに失敗しました', false);
       }
     });
+  });
+
+  // 一覧の絞り込み。入力のたびに月内の表示を更新する。
+  $<HTMLInputElement>('#entry-search').addEventListener('input', (e) => {
+    searchQuery = (e.target as HTMLInputElement).value;
+    renderEntries();
   });
 
   // テーマ切替。system → light → dark を巡回し、data-theme属性で見た目が決まる。
@@ -462,6 +536,41 @@ export function mountApp(root: HTMLElement, ledger: Ledger): void {
   // systemのときはOSの明暗変更にmetaを追従させる(表示自体はCSSが追従する)。
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     if (themePref === 'system') syncMetaThemeColor();
+  });
+
+  // 表示中の月をURLのハッシュへ保存し、ブックマーク・履歴で同じ月を開けるようにする。
+  function monthFromHash(): string | null {
+    const m = /^#?(\d{4}-\d{2})$/.exec(location.hash);
+    return m?.[1] ?? null;
+  }
+  function syncHash(): void {
+    const target = `#${month}`;
+    if (location.hash !== target) history.replaceState(null, '', target);
+  }
+  const initialMonth = monthFromHash();
+  if (initialMonth !== null) month = initialMonth;
+  window.addEventListener('hashchange', () => {
+    const next = monthFromHash();
+    if (next !== null && next !== month) {
+      month = next;
+      render(true);
+    }
+  });
+
+  // キーボードショートカット。入力中や修飾キー併用時は手を出さない。
+  document.addEventListener('keydown', (e) => {
+    const el = e.target as HTMLElement;
+    if (el.matches('input, textarea, select') || el.isContentEditable) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === 'ArrowLeft' || e.key === '[') changeMonth(-1);
+    else if (e.key === 'ArrowRight' || e.key === ']') changeMonth(1);
+    else if (e.key === 'n') {
+      e.preventDefault();
+      field<HTMLInputElement>('amount').focus();
+    } else if (e.key === '/') {
+      e.preventDefault();
+      $<HTMLInputElement>('#entry-search').focus();
+    }
   });
 
   resetForm();
